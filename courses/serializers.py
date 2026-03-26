@@ -28,11 +28,15 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
     
     def validate_role(self, value):
-        # Accept either primitive int or model-like role object.
-        role_num = None
+        # Frontend contract: incoming payload must send numeric role_num.
+        raw_role = self.initial_data.get('role') if hasattr(self, 'initial_data') else None
+        try:
+            int(raw_role)
+        except (TypeError, ValueError):
+            raise serializers.ValidationError("Role must be an integer role_num.")
+
+        # DRF may already convert FK id to RoleLookup instance by this point.
         if isinstance(value, RoleLookup):
-            role_num = value.role_num
-        elif hasattr(value, 'role_num'):
             role_num = value.role_num
         else:
             try:

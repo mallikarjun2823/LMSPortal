@@ -15,20 +15,19 @@ class AuthService:
         if User.objects.filter(email=data['email']).exists():
             raise ValueError("Email already exists.")
 
-        # Accept role as numeric role_num (or RoleLookup instance for safety)
+        # Frontend contract: role is numeric role_num only.
         role_input = data.get('role')
-        role_obj = None
         if isinstance(role_input, RoleLookup):
-            role_obj = role_input
-        else:
-            try:
-                role_num = int(role_input)
-            except (TypeError, ValueError):
-                raise ValueError("Role must be as an integer.")
+            raise ValueError("Role must be as an integer.")
 
-            role_obj = RoleLookup.objects.filter(role_num=role_num).first()
-            if not role_obj:
-                raise ValueError("Role not found.")
+        try:
+            role_num = int(role_input)
+        except (TypeError, ValueError):
+            raise ValueError("Role must be as an integer.")
+
+        role_obj = RoleLookup.objects.filter(role_num=role_num).first()
+        if not role_obj:
+            raise ValueError("Role not found.")
 
         try:
             user = User.objects.create_user(
