@@ -1,4 +1,4 @@
-from .models import User,Course, Module, Lesson
+from .models import User,Course, Module, Lesson, RoleLookup
 from rest_framework import serializers
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -28,10 +28,22 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
     
     def validate_role(self, value):
-        valid_roles = [choice[0] for choice in User.ROLE_CHOICES]
-        if value not in valid_roles:
+        # Accept either primitive int or model-like role object.
+        role_num = None
+        if isinstance(value, RoleLookup):
+            role_num = value.role_num
+        elif hasattr(value, 'role_num'):
+            role_num = value.role_num
+        else:
+            try:
+                role_num = int(value)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError("Role must be an integer role_num.")
+
+        if not RoleLookup.objects.filter(role_num=role_num).exists():
+            valid_roles = [f"{r.role_num}:{r.role_name}" for r in RoleLookup.objects.all()]
             raise serializers.ValidationError(f"Role must be one of: {', '.join(valid_roles)}.")
-        return value
+        return role_num
         
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -47,3 +59,21 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError("User with this username does not exist.")
         return data
+
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['id', 'title', 'description','created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_title(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Title cannot be blank.")
+        return value
+
+    def validate_description(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Description cannot be blank.")
+        return value
+    
+    

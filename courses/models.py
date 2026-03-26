@@ -15,6 +15,19 @@ Conventions:
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+class RoleLookup(models.Model):
+    """A simple model to store valid user roles.
+
+    This allows us to enforce that the `role` field on `User` can only take
+    values that exist in this table. We can pre-populate this table with the
+    valid roles: 'INSTRUCTOR', 'STUDENT', 'ADMINISTRATOR'.
+    """
+
+    role_num = models.IntegerField(unique=True)
+    role_name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.role_num
 
 class User(AbstractUser):
     """Application user with a role field.
@@ -25,14 +38,11 @@ class User(AbstractUser):
     The `role` can be used for permission checks and to separate instructor
     behavior (creating courses) from student behavior (enrolling, viewing).
     """
-
-    ROLE_CHOICES = [
-        ('INSTRUCTOR', 'Instructor'),
-        ('STUDENT', 'Student'),
-        ('ADMINISTRATOR', 'Administrator'),
-    ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-
+    role = models.ForeignKey(
+        RoleLookup,
+        on_delete=models.PROTECT,
+        related_name='users'
+    )
 
 class Course(models.Model):
     """A course created by an instructor.

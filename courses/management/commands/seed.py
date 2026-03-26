@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from courses.models import Course, Module, Lesson
+from courses.models import Course, Module, Lesson, RoleLookup
 
 
 class Command(BaseCommand):
@@ -27,10 +27,19 @@ class Command(BaseCommand):
             User.objects.filter(username__in=["instructor1", "student1", "admin"]).delete()
 
         with transaction.atomic():
+            # Ensure RoleLookup rows exist (1=INSTRUCTOR, 2=STUDENT, 3=ADMINISTRATOR)
+            RoleLookup.objects.get_or_create(role_num=1, defaults={"role_name": "INSTRUCTOR"})
+            RoleLookup.objects.get_or_create(role_num=2, defaults={"role_name": "STUDENT"})
+            RoleLookup.objects.get_or_create(role_num=3, defaults={"role_name": "ADMINISTRATOR"})
+
+            instructor_role = RoleLookup.objects.get(role_num=1)
+            student_role = RoleLookup.objects.get(role_num=2)
+            admin_role = RoleLookup.objects.get(role_num=3)
+
             # Create users
             instructor, created = User.objects.get_or_create(
                 username="instructor1",
-                defaults={"email": "instructor@example.com", "role": "INSTRUCTOR"},
+                defaults={"email": "instructor@example.com", "role": instructor_role},
             )
             if created:
                 instructor.set_password("password")
@@ -38,7 +47,7 @@ class Command(BaseCommand):
 
             student, created = User.objects.get_or_create(
                 username="student1",
-                defaults={"email": "student@example.com", "role": "STUDENT"},
+                defaults={"email": "student@example.com", "role": student_role},
             )
             if created:
                 student.set_password("password")
@@ -48,7 +57,7 @@ class Command(BaseCommand):
                 username="admin",
                 defaults={
                     "email": "admin@example.com",
-                    "role": "ADMINISTRATOR",
+                    "role": admin_role,
                     "is_staff": True,
                     "is_superuser": True,
                 },

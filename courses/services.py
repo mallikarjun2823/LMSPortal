@@ -1,4 +1,4 @@
-from .models import User, Course, Module, Lesson
+from .models import User, Course, Module, Lesson, RoleLookup
 from .serializers import RegisterSerializer, LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -14,14 +14,28 @@ class AuthService:
             raise ValueError("Username already exists.")
         if User.objects.filter(email=data['email']).exists():
             raise ValueError("Email already exists.")
-        if data['role'] not in [choice[0] for choice in User.ROLE_CHOICES]:
-            raise ValueError(f"Role must be one of: {', '.join([choice[0] for choice in User.ROLE_CHOICES])}.")
+
+        # Accept role as numeric role_num (or RoleLookup instance for safety)
+        role_input = data.get('role')
+        role_obj = None
+        if isinstance(role_input, RoleLookup):
+            role_obj = role_input
+        else:
+            try:
+                role_num = int(role_input)
+            except (TypeError, ValueError):
+                raise ValueError("Role must be as an integer.")
+
+            role_obj = RoleLookup.objects.filter(role_num=role_num).first()
+            if not role_obj:
+                raise ValueError("Role not found.")
+
         try:
             user = User.objects.create_user(
                 username=data['username'],
                 email=data['email'],
                 password=data['password'],
-                role=data['role']
+                role=role_obj
             )
             user.save()
             return self.generate_tokens_for_user(user)
@@ -38,3 +52,29 @@ class AuthService:
                 raise ValueError("Invalid password.")
         except User.DoesNotExist:
             raise ValueError("User does not exist.")
+    
+    def authenticate_user(self, token):
+        try:
+            refresh = RefreshToken(token)
+            user_id = refresh['user_id']
+            user = User.objects.get(id=user_id)
+            return user
+        except Exception:
+            return None
+            
+class CourseService:
+    def create_course(self, user, title, description):
+        if not title.strip():
+            raise ValueError("Title cannot be blank.")
+        if not description.strip():
+            raise ValueError("Description cannot be blank.")
+        # RoleLookup: instructor = role_num 1
+        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
+        if not getattr(user, 'is_authenticated', False) or user_role_num != 1:
+            raise ValueError("Only authenticated instructors can create courses.")
+        course = Course.objects.create(
+            title=title,
+            description=description,
+            instructor=user
+        )
+        return course
