@@ -8,9 +8,9 @@ from .models import User, Course, RoleLookup
 class AuthAndCourseTests(APITestCase):
     def setUp(self):
         # ensure role lookup rows exist and create an instructor user
-        instructor_role, _ = RoleLookup.objects.get_or_create(role_num=1, defaults={'role_name': 'INSTRUCTOR'})
-        RoleLookup.objects.get_or_create(role_num=2, defaults={'role_name': 'STUDENT'})
-        RoleLookup.objects.get_or_create(role_num=3, defaults={'role_name': 'ADMINISTRATOR'})
+        instructor_role, _ = RoleLookup.objects.get_or_create(role_num='INST', defaults={'role_name': 'INSTRUCTOR'})
+        RoleLookup.objects.get_or_create(role_num='STUD', defaults={'role_name': 'STUDENT'})
+        RoleLookup.objects.get_or_create(role_num='ADMIN', defaults={'role_name': 'ADMINISTRATOR'})
 
         self.instructor = User.objects.create_user(
             username='instructor1',
@@ -25,7 +25,7 @@ class AuthAndCourseTests(APITestCase):
             'username': 'newstudent',
             'email': 'student@example.com',
             'password': 'pass1234',
-            'role': 2
+            'role': 'STUD'
         }
         resp = self.client.post(url, payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)

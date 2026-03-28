@@ -2,6 +2,8 @@ from .models import User,Course, Module, Lesson, RoleLookup
 from rest_framework import serializers
 
 class RegisterSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(write_only=True)  # Accept string role_num from frontend
+    
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'role']
@@ -28,26 +30,27 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
     
     def validate_role(self, value):
-        # Frontend contract: incoming payload must send numeric role_num.
-        raw_role = self.initial_data.get('role') if hasattr(self, 'initial_data') else None
-        try:
-            int(raw_role)
-        except (TypeError, ValueError):
-            raise serializers.ValidationError("Role must be an integer role_num.")
+        # Frontend contract: send string role_num (e.g., 'INST', 'STUD', 'ADMIN')
+        raw_role = str(value).strip() if value else None
+        if not raw_role:
+            raise serializers.ValidationError("Role is required.")
 
-        # DRF may already convert FK id to RoleLookup instance by this point.
-        if isinstance(value, RoleLookup):
-            role_num = value.role_num
-        else:
-            try:
-                role_num = int(value)
-            except (TypeError, ValueError):
-                raise serializers.ValidationError("Role must be an integer role_num.")
-
-        if not RoleLookup.objects.filter(role_num=role_num).exists():
-            valid_roles = [f"{r.role_num}:{r.role_name}" for r in RoleLookup.objects.all()]
-            raise serializers.ValidationError(f"Role must be one of: {', '.join(valid_roles)}.")
-        return role_num
+        # Validate against known role keys in the database
+        role_obj = RoleLookup.objects.filter(role_num=raw_role).first()
+        if not role_obj:
+            valid_roles = ", ".join([r.role_num for r in RoleLookup.objects.all()])
+            raise serializers.ValidationError(f"Role must be one of: {valid_roles}")
+        return raw_role  # Return the string key
+    
+    def create(self, validated_data):
+        # Convert role string to RoleLookup instance
+        role_num = validated_data.pop('role')
+        role_obj = RoleLookup.objects.get(role_num=role_num)
+        user = User.objects.create_user(
+            **validated_data,
+            role=role_obj
+        )
+        return user
         
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()

@@ -3,10 +3,32 @@ from .models import Course, Module, Lesson
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.conf import settings
 from .services import AuthService, CourseService
 from .serializers import RegisterSerializer, LoginSerializer, CourseSerializer
 from .permissions import CoursePermission
 from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+
+def _set_token_cookie(response, key, token, max_age):
+    response.set_cookie(
+        key=key,
+        value=token,
+        max_age=max_age,
+        httponly=getattr(settings, "AUTH_COOKIE_HTTP_ONLY", True),
+        secure=getattr(settings, "AUTH_COOKIE_SECURE", True),
+        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "Lax"),
+        path="/",
+    )
+
+
+def _clear_token_cookie(response, key):
+    response.delete_cookie(
+        key=key,
+        path="/",
+        samesite=getattr(settings, "AUTH_COOKIE_SAMESITE", "Lax"),
+    )
 
 class RegisterView(APIView):
     def post(self, request):
@@ -26,6 +48,77 @@ class LoginView(APIView):
             return Response({"message": "Login successful.", "tokens": tokens}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class CookieTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+
+        if response.status_code == status.HTTP_200_OK:
+            access = response.data.get("access")
+            refresh = response.data.get("refresh")
+            if access:
+                _set_token_cookie(
+                    response,
+                    getattr(settings, "AUTH_COOKIE_ACCESS", "access_token"),
+                    access,
+                    int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+                )
+            if refresh:
+                _set_token_cookie(
+                    response,
+                    getattr(settings, "AUTH_COOKIE_REFRESH", "refresh_token"),
+                    refresh,
+                    int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+                )
+        return response
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        payload = request.data.copy() if hasattr(request.data, "copy") else {}
+        if "refresh" not in payload:
+            refresh_cookie_name = getattr(settings, "AUTH_COOKIE_REFRESH", "refresh_token")
+            refresh_token = request.COOKIES.get(refresh_cookie_name)
+            if refresh_token:
+                payload["refresh"] = refresh_token
+
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        response = Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+        if response.status_code == status.HTTP_200_OK:
+            access = response.data.get("access")
+            refresh = response.data.get("refresh")
+            if access:
+                _set_token_cookie(
+                    response,
+                    getattr(settings, "AUTH_COOKIE_ACCESS", "access_token"),
+                    access,
+                    int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+                )
+            if refresh:
+                _set_token_cookie(
+                    response,
+                    getattr(settings, "AUTH_COOKIE_REFRESH", "refresh_token"),
+                    refresh,
+                    int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+                )
+        return response
+
+
+class LogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        response = Response({"message": "Logged out."}, status=status.HTTP_200_OK)
+        _clear_token_cookie(response, getattr(settings, "AUTH_COOKIE_ACCESS", "access_token"))
+        _clear_token_cookie(response, getattr(settings, "AUTH_COOKIE_REFRESH", "refresh_token"))
+        return response
+
 class CourseView(APIView):
     serializer_class = CourseSerializer
     service_class = CourseService
@@ -33,7 +126,16 @@ class CourseView(APIView):
         if self.request.method in ['POST', 'PUT', 'DELETE']:
             return [IsAuthenticated(), CoursePermission()]
         return [AllowAny()]
-    
+
+    def get(self, request):
+        service = self.service_class()
+        try:
+            courses = service.list_courses(request.user)
+            serializer = self.serializer_class(courses, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
@@ -44,5 +146,7 @@ class CourseView(APIView):
             except ValueError as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
 
     

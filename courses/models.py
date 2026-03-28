@@ -16,18 +16,27 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class RoleLookup(models.Model):
-    """A simple model to store valid user roles.
+    """A lookup table for valid user roles.
 
-    This allows us to enforce that the `role` field on `User` can only take
-    values that exist in this table. We can pre-populate this table with the
-    valid roles: 'INSTRUCTOR', 'STUDENT', 'ADMINISTRATOR'.
+    Stores role definitions with string role_num keys for easy validation and lookup.
+    
+    Fields:
+    - `role_num` (str): unique role key (e.g., 'INST', 'STUD', 'ADMIN'). Use this
+      in API payloads and role checks.
+    - `role_name` (str): human-readable role name (e.g., 'INSTRUCTOR').
+    
+    Example:
+        role = RoleLookup.objects.get(role_num='INST')
     """
 
-    role_num = models.IntegerField(unique=True)
+    role_num = models.CharField(max_length=20, unique=True)
     role_name = models.CharField(max_length=50)
 
+    class Meta:
+        ordering = ['role_num']
+
     def __str__(self):
-        return self.role_num
+        return f"{self.role_num} ({self.role_name})"
 
 class User(AbstractUser):
     """Application user with a role field.
@@ -62,6 +71,11 @@ class Course(models.Model):
         User,
         on_delete=models.PROTECT,
         related_name='instructed_courses'
+    )
+    enrolled_students = models.ManyToManyField(
+        User,
+        related_name='enrolled_courses',
+        blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

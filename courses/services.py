@@ -15,19 +15,14 @@ class AuthService:
         if User.objects.filter(email=data['email']).exists():
             raise ValueError("Email already exists.")
 
-        # Frontend contract: role is numeric role_num only.
-        role_input = data.get('role')
-        if isinstance(role_input, RoleLookup):
-            raise ValueError("Role must be as an integer.")
-
-        try:
-            role_num = int(role_input)
-        except (TypeError, ValueError):
-            raise ValueError("Role must be as an integer.")
+        # Serializer returns role as string role_num key (e.g., 'INST', 'STUD')
+        role_num = data.get('role')
+        if not role_num:
+            raise ValueError("Role is required.")
 
         role_obj = RoleLookup.objects.filter(role_num=role_num).first()
         if not role_obj:
-            raise ValueError("Role not found.")
+            raise ValueError(f"Role '{role_num}' not found.")
 
         try:
             user = User.objects.create_user(
@@ -62,14 +57,37 @@ class AuthService:
             return None
             
 class CourseService:
+
+    def list_courses(self, user):
+        """List courses based on user role.
+        
+        - Students: return courses they are enrolled in
+        - Instructors: return courses they teach
+        - Others: return empty queryset
+        """
+        if not getattr(user, 'is_authenticated', False):
+            return Course.objects.none()
+        
+        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
+        
+        if user_role_num == 'STUD':
+            # Return courses the student is enrolled in
+            return user.enrolled_courses.all()
+        elif user_role_num == 'INST':
+            # Return courses the instructor teaches
+            return user.instructed_courses.all()
+        else:
+            # For other roles (ADMIN, etc.), return empty
+            return Course.objects.none()
+    
     def create_course(self, user, title, description):
         if not title.strip():
             raise ValueError("Title cannot be blank.")
         if not description.strip():
             raise ValueError("Description cannot be blank.")
-        # RoleLookup: instructor = role_num 1
+        # RoleLookup: instructor uses role_num 'INST'
         user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
-        if not getattr(user, 'is_authenticated', False) or user_role_num != 1:
+        if not getattr(user, 'is_authenticated', False) or user_role_num != 'INST':
             raise ValueError("Only authenticated instructors can create courses.")
         course = Course.objects.create(
             title=title,

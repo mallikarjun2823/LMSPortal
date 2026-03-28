@@ -27,14 +27,14 @@ class Command(BaseCommand):
             User.objects.filter(username__in=["instructor1", "student1", "admin"]).delete()
 
         with transaction.atomic():
-            # Ensure RoleLookup rows exist (1=INSTRUCTOR, 2=STUDENT, 3=ADMINISTRATOR)
-            RoleLookup.objects.get_or_create(role_num=1, defaults={"role_name": "INSTRUCTOR"})
-            RoleLookup.objects.get_or_create(role_num=2, defaults={"role_name": "STUDENT"})
-            RoleLookup.objects.get_or_create(role_num=3, defaults={"role_name": "ADMINISTRATOR"})
+            # Ensure RoleLookup rows exist with string keys
+            RoleLookup.objects.get_or_create(role_num="INST", defaults={"role_name": "INSTRUCTOR"})
+            RoleLookup.objects.get_or_create(role_num="STUD", defaults={"role_name": "STUDENT"})
+            RoleLookup.objects.get_or_create(role_num="ADMIN", defaults={"role_name": "ADMINISTRATOR"})
 
-            instructor_role = RoleLookup.objects.get(role_num=1)
-            student_role = RoleLookup.objects.get(role_num=2)
-            admin_role = RoleLookup.objects.get(role_num=3)
+            instructor_role = RoleLookup.objects.get(role_num="INST")
+            student_role = RoleLookup.objects.get(role_num="STUD")
+            admin_role = RoleLookup.objects.get(role_num="ADMIN")
 
             # Create users
             instructor, created = User.objects.get_or_create(
@@ -80,7 +80,21 @@ class Command(BaseCommand):
                 course.instructor = instructor
                 course.save()
 
-            # Create modules and lessons
+            # Enroll student in the course
+            course.enrolled_students.add(student)
+
+            # Create another course for variety
+            course2, _ = Course.objects.get_or_create(
+                title="Advanced Python",
+                defaults={
+                    "description": "Deep dive into Python programming.",
+                    "instructor": instructor,
+                },
+            )
+            # Enroll student in second course too
+            course2.enrolled_students.add(student)
+
+            # Create modules and lessons for first course
             for m in range(1, 4):
                 module, _ = Module.objects.get_or_create(
                     course=course,
@@ -95,6 +109,24 @@ class Command(BaseCommand):
                         defaults={
                             "title": f"Lesson {l}",
                             "content": f"Sample content for lesson {l} of module {m}.",
+                        },
+                    )
+
+            # Create modules and lessons for second course
+            for m in range(1, 3):
+                module, _ = Module.objects.get_or_create(
+                    course=course2,
+                    module_number=m,
+                    defaults={"title": f"Module {m}"},
+                )
+
+                for l in range(1, 3):
+                    Lesson.objects.get_or_create(
+                        module=module,
+                        lesson_number=l,
+                        defaults={
+                            "title": f"Lesson {l}",
+                            "content": f"Advanced content for lesson {l} of module {m}.",
                         },
                     )
 
