@@ -150,3 +150,16 @@ class CourseDetailService:
         if user_role_num != 'INST' or course.instructor_id != user.id:
             raise ValueError("Only the instructor of this course can delete it.")
         course.delete()
+    
+    def enroll_student(self, user, course_id):
+        course = self.get_course_detail(user, course_id)
+        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
+        if user.is_authenticated == False:
+            raise ValueError("Authentication required to enroll in courses.")
+        if user_role_num != 'STUD':
+            raise ValueError("Only students can enroll in courses.")
+
+        if course.enrolled_students.filter(id=user.id).exists():
+            raise ValueError("You are already enrolled in this course.")
+            
+        course.enrolled_students.add(user)
