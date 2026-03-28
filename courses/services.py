@@ -119,23 +119,34 @@ class CourseDetailService:
             return course
         else:
             raise ValueError("You do not have permission to view this course.")
-    def update_course(self, user, course_id, title, description):
-        object = self.get_course_detail(user, course_id)
+    def update_course(self, user, course_id, title=None, description=None):
+        course = self.get_course_detail(user, course_id)
         user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
-        if user_role_num != 'INST' or object.instructor_id != user.id:
+        if user_role_num != 'INST' or course.instructor_id != user.id:
             raise ValueError("Only the instructor of this course can update it.")
-        if not title.strip():
+
+        new_title = course.title if title is None else title
+        new_description = course.description if description is None else description
+
+        if not new_title.strip():
             raise ValueError("Title cannot be blank.")
-        if not description.strip():
+        if not new_description.strip():
             raise ValueError("Description cannot be blank.")
         
-        is_duplicate_title = Course.objects.filter(title=title).exclude(id=course_id).exists()
-        is_duplicate_description = Course.objects.filter(description=description).exclude(id=course_id).exists()
+        is_duplicate_title = Course.objects.filter(title=new_title).exclude(id=course_id).exists()
+        is_duplicate_description = Course.objects.filter(description=new_description).exclude(id=course_id).exists()
         if is_duplicate_title:
             raise ValueError("A course with this title already exists.")
         if is_duplicate_description:    
             raise ValueError("A course with this description already exists.")
-        object.title = title
-        object.description = description
-        object.save()
-        return Course.objects.select_related('instructor').get(id=object.id)
+        course.title = new_title
+        course.description = new_description
+        course.save()
+        return Course.objects.select_related('instructor').get(id=course.id)
+
+    def delete_course(self, user, course_id):
+        course = self.get_course_detail(user, course_id)
+        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
+        if user_role_num != 'INST' or course.instructor_id != user.id:
+            raise ValueError("Only the instructor of this course can delete it.")
+        course.delete()

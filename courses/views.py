@@ -163,5 +163,30 @@ class CourseDetailView(APIView):
             return Response(serializer.data)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+    
+    def patch(self, request, course_id):
+        serializer = self.serializer_class(data=request.data, partial=True)
+        if serializer.is_valid(raise_exception=True):
+            service = self.service_class()
+            try:
+                course = service.update_course(
+                    request.user,
+                    course_id,
+                    title=serializer.validated_data.get('title'),
+                    description=serializer.validated_data.get('description'),
+                )
+                detail_serializer = self.serializer_class(course)
+                return Response(detail_serializer.data)
+            except ValueError as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, course_id):
+        service = self.service_class()
+        try:
+            service.delete_course(request.user, course_id)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     

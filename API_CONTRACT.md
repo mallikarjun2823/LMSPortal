@@ -145,6 +145,15 @@ Response (201):
   }
 }
 
+### DELETE /api/courses/<course_id>/
+
+Request body: none
+
+Auth: required (must be INST role and instructor of the course)
+
+Response (204):
+No content
+
 ## Authentication Usage (Frontend)
 
 Option A: Cookie-based auth (recommended)
