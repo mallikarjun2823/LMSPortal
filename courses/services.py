@@ -94,4 +94,4 @@ class CourseService:
             description=description,
             instructor=user
         )
-        return course
+        return Course.objects.select_related('instructor').get(id=course.id)

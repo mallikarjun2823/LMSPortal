@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 from .services import AuthService, CourseService
-from .serializers import RegisterSerializer, LoginSerializer, CourseSerializer
+from .serializers import RegisterSerializer, LoginSerializer, CourseSerializer, CourseDetailSerializer
 from .permissions import CoursePermission
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -141,12 +141,20 @@ class CourseView(APIView):
         if serializer.is_valid(raise_exception=True):
             course_service = self.service_class()
             try:
-                course = course_service.create_course(request.user, **serializer.validated_data)
-                return Response({"message": "Course created successfully.", "course_id": course.id}, status=status.HTTP_201_CREATED)
+                course = course_service.create_course(
+                    request.user,
+                    instructor_id=serializer.validated_data.get('instructor_id'),
+                    title=serializer.validated_data.get('title'),
+                    description=serializer.validated_data.get('description'),
+                )
+                detail_serializer = CourseDetailSerializer(course)
+                return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
             except ValueError as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    
+class CourseDetailView(APIView):
+    def get_permissions(self, request):
+        return [IsAuthenticated(), CoursePermission()]    
 
     

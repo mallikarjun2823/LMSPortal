@@ -83,4 +83,27 @@ class CourseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Description cannot be blank.")
         return value
     
+class CourseDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'instructor']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'instructor']
+        extra_kwargs = {
+            'title': {'required': False},
+            'description': {'required': False},
+            'instructor': {'required': False},
+        }
+
+    def validate(self, attrs):
+        title = attrs.get('title')
+        description = attrs.get('description')
+        instructor = attrs.get('instructor')
+        if title is not None and not title.strip():
+            raise serializers.ValidationError({'title': 'Title cannot be blank.'})
+
+        if description is not None and not description.strip():
+            raise serializers.ValidationError({'description': 'Description cannot be blank.'})
+        if instructor is not None and not str(instructor).strip():
+            raise serializers.ValidationError({'instructor': 'Instructor cannot be blank.'})
+        return attrs
     
