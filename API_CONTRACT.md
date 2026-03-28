@@ -105,7 +105,19 @@ Response (200):
     "title": "string",
     "description": "string",
     "created_at": "string",
-    "updated_at": "string"
+    "updated_at": "string",
+    "instructor": {
+      "id": 10,
+      "username": "string",
+      "email": "string"
+    },
+    "enrolled_students": [
+      {
+        "id": 20,
+        "username": "string",
+        "email": "string"
+      }
+    ]
   }
 ]
 
@@ -126,7 +138,11 @@ Response (201):
   "description": "string",
   "created_at": "string",
   "updated_at": "string",
-  "instructor": 10  // instructor user id
+  "instructor": {
+    "id": 10,
+    "username": "string",
+    "email": "string"
+  }
 }
 
 ## Authentication Usage (Frontend)

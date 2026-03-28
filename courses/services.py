@@ -72,10 +72,10 @@ class CourseService:
         
         if user_role_num == 'STUD':
             # Return courses the student is enrolled in
-            return user.enrolled_courses.all()
+            return user.enrolled_courses.all().select_related('instructor').prefetch_related('enrolled_students')
         elif user_role_num == 'INST':
             # Return courses the instructor teaches
-            return user.instructed_courses.all()
+            return user.instructed_courses.all().select_related('instructor').prefetch_related('enrolled_students')
         else:
             # For other roles (ADMIN, etc.), return empty
             return Course.objects.none()
@@ -89,6 +89,12 @@ class CourseService:
         user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
         if not getattr(user, 'is_authenticated', False) or user_role_num != 'INST':
             raise ValueError("Only authenticated instructors can create courses.")
+        course = Course.objects.filter(title=title).first()
+        if course:
+            raise ValueError("A course with this title already exists.")
+        course = Course.objects.filter(description=description).first()
+        if course:
+            raise ValueError("A course with this description already exists.")
         course = Course.objects.create(
             title=title,
             description=description,

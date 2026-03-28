@@ -1,6 +1,12 @@
 from .models import User,Course, Module, Lesson, RoleLookup
 from rest_framework import serializers
 
+
+class UserSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
+
 class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.CharField(write_only=True)  # Accept string role_num from frontend
     
@@ -82,8 +88,28 @@ class CourseSerializer(serializers.ModelSerializer):
         if not value.strip():
             raise serializers.ValidationError("Description cannot be blank.")
         return value
+
+
+class CourseListSerializer(serializers.ModelSerializer):
+    instructor = UserSummarySerializer(read_only=True)
+    enrolled_students = UserSummarySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Course
+        fields = [
+            'id',
+            'title',
+            'description',
+            'created_at',
+            'updated_at',
+            'instructor',
+            'enrolled_students',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'instructor', 'enrolled_students']
     
 class CourseDetailSerializer(serializers.ModelSerializer):
+    instructor = UserSummarySerializer(read_only=True)
+
     class Meta:
         model = Course
         fields = ['id', 'title', 'description', 'created_at', 'updated_at', 'instructor']
@@ -91,19 +117,15 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'title': {'required': False},
             'description': {'required': False},
-            'instructor': {'required': False},
         }
 
     def validate(self, attrs):
         title = attrs.get('title')
         description = attrs.get('description')
-        instructor = attrs.get('instructor')
         if title is not None and not title.strip():
             raise serializers.ValidationError({'title': 'Title cannot be blank.'})
 
         if description is not None and not description.strip():
             raise serializers.ValidationError({'description': 'Description cannot be blank.'})
-        if instructor is not None and not str(instructor).strip():
-            raise serializers.ValidationError({'instructor': 'Instructor cannot be blank.'})
         return attrs
     

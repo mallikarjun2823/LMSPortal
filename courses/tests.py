@@ -45,11 +45,7 @@ class AuthAndCourseTests(APITestCase):
         # force_authenticate keeps test focused on role/permission behavior.
         create_url = reverse('course-list-create')
         self.client.force_authenticate(user=self.instructor)
-        course_payload = {
-            'title': 'Django',
-            'description': 'Basic Django course',
-            'instructor_id': self.instructor.id
-        }
+        course_payload = {'title': 'Django', 'description': 'Basic Django course'}
         resp2 = self.client.post(create_url, course_payload, format='json')
         self.assertEqual(resp2.status_code, status.HTTP_201_CREATED)
         # verify course exists
