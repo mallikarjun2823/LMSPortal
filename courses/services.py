@@ -101,3 +101,41 @@ class CourseService:
             instructor=user
         )
         return Course.objects.select_related('instructor').get(id=course.id)
+class CourseDetailService:
+    def get_course_detail(self, user, course_id):
+        if not getattr(user, 'is_authenticated', False):
+            raise ValueError("Authentication required to view course details.")
+        
+        course = Course.objects.filter(id=course_id).select_related('instructor').prefetch_related('enrolled_students').first()
+        if not course:
+            raise ValueError("Course not found.")
+        
+        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
+        
+        # Check if user is instructor of the course or enrolled student
+        if user_role_num == 'INST' and course.instructor_id == user.id:
+            return course
+        elif user_role_num == 'STUD' and course.enrolled_students.filter(id=user.id).exists():
+            return course
+        else:
+            raise ValueError("You do not have permission to view this course.")
+    def update_course(self, user, course_id, title, description):
+        object = self.get_course_detail(user, course_id)
+        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
+        if user_role_num != 'INST' or object.instructor_id != user.id:
+            raise ValueError("Only the instructor of this course can update it.")
+        if not title.strip():
+            raise ValueError("Title cannot be blank.")
+        if not description.strip():
+            raise ValueError("Description cannot be blank.")
+        
+        is_duplicate_title = Course.objects.filter(title=title).exclude(id=course_id).exists()
+        is_duplicate_description = Course.objects.filter(description=description).exclude(id=course_id).exists()
+        if is_duplicate_title:
+            raise ValueError("A course with this title already exists.")
+        if is_duplicate_description:    
+            raise ValueError("A course with this description already exists.")
+        object.title = title
+        object.description = description
+        object.save()
+        return Course.objects.select_related('instructor').get(id=object.id)

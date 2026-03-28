@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
-from .services import AuthService, CourseService
+from .services import AuthService, CourseService, CourseDetailService
 from .serializers import RegisterSerializer, LoginSerializer, CourseSerializer, CourseDetailSerializer, CourseListSerializer
 from .permissions import CoursePermission
 from rest_framework.permissions import IsAuthenticated,AllowAny
@@ -150,7 +150,18 @@ class CourseView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class CourseDetailView(APIView):
-    def get_permissions(self, request):
+    serializer_class = CourseDetailSerializer
+    service_class = CourseDetailService
+    def get_permissions(self):
         return [IsAuthenticated(), CoursePermission()]    
+
+    def get(self, request, course_id):
+        service = self.service_class()
+        try:
+            course = service.get_course_detail(request.user, course_id)
+            serializer = self.serializer_class(course)
+            return Response(serializer.data)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
     

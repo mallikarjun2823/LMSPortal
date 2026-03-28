@@ -7,4 +7,5 @@ urlpatterns = [
     path('token/refresh/', views.CookieTokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
     path('courses/', views.CourseView.as_view(), name='course-list-create'),
+    path('courses/<int:course_id>/', views.CourseDetailView.as_view(), name='course-detail'),
 ]
