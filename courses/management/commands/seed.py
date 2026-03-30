@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from courses.models import Course, Module, Lesson, RoleLookup
+from enrollment.models import Enrollment
 
 
 class Command(BaseCommand):
@@ -80,8 +81,12 @@ class Command(BaseCommand):
                 course.instructor = instructor
                 course.save()
 
-            # Enroll student in the course
-            course.enrolled_students.add(student)
+            # Enroll student in the course via Enrollment model
+            Enrollment.objects.get_or_create(
+                user=student,
+                course=course,
+                defaults={"status": Enrollment.Status.ACTIVE},
+            )
 
             # Create another course for variety
             course2, _ = Course.objects.get_or_create(
@@ -91,8 +96,12 @@ class Command(BaseCommand):
                     "instructor": instructor,
                 },
             )
-            # Enroll student in second course too
-            course2.enrolled_students.add(student)
+            # Enroll student in second course too via Enrollment model
+            Enrollment.objects.get_or_create(
+                user=student,
+                course=course2,
+                defaults={"status": Enrollment.Status.ACTIVE},
+            )
 
             # Create modules and lessons for first course
             for m in range(1, 4):

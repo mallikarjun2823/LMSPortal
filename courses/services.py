@@ -1,6 +1,7 @@
 from .models import User, Course, Module, Lesson, RoleLookup
 from .serializers import RegisterSerializer, LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from enrollment.models import Enrollment
 
 class AuthService:
     def generate_tokens_for_user(self, user):
@@ -69,13 +70,24 @@ class CourseService:
             return Course.objects.none()
         
         user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
-        
+
         if user_role_num == 'STUD':
-            # Return courses the student is enrolled in
-            return user.enrolled_courses.all().select_related('instructor').prefetch_related('enrolled_students')
+            # Return courses the student is enrolled in via Enrollment
+            return (
+                Course.objects.filter(
+                    enrollments__user=user,
+                    enrollments__status=Enrollment.Status.ACTIVE,
+                )
+                .select_related('instructor')
+                .distinct()
+            )
         elif user_role_num == 'INST':
             # Return courses the instructor teaches
-            return user.instructed_courses.all().select_related('instructor').prefetch_related('enrolled_students')
+            return (
+                user.instructed_courses.all()
+                .select_related('instructor')
+                .prefetch_related('enrollments')
+            )
         else:
             # For other roles (ADMIN, etc.), return empty
             return Course.objects.none()
@@ -106,7 +118,12 @@ class CourseDetailService:
         if not getattr(user, 'is_authenticated', False):
             raise ValueError("Authentication required to view course details.")
         
-        course = Course.objects.filter(id=course_id).select_related('instructor').prefetch_related('enrolled_students').first()
+        course = (
+            Course.objects.filter(id=course_id)
+            .select_related('instructor')
+            .prefetch_related('enrollments')
+            .first()
+        )
         if not course:
             raise ValueError("Course not found.")
         
@@ -115,7 +132,9 @@ class CourseDetailService:
         # Check if user is instructor of the course or enrolled student
         if user_role_num == 'INST' and course.instructor_id == user.id:
             return course
-        elif user_role_num == 'STUD' and course.enrolled_students.filter(id=user.id).exists():
+        elif user_role_num == 'STUD' and course.enrollments.filter(
+            user=user, status=Enrollment.Status.ACTIVE
+        ).exists():
             return course
         else:
             raise ValueError("You do not have permission to view this course.")
@@ -151,15 +170,3 @@ class CourseDetailService:
             raise ValueError("Only the instructor of this course can delete it.")
         course.delete()
     
-    def enroll_student(self, user, course_id):
-        course = self.get_course_detail(user, course_id)
-        user_role_num = getattr(getattr(user, 'role', None), 'role_num', None)
-        if user.is_authenticated == False:
-            raise ValueError("Authentication required to enroll in courses.")
-        if user_role_num != 'STUD':
-            raise ValueError("Only students can enroll in courses.")
-
-        if course.enrolled_students.filter(id=user.id).exists():
-            raise ValueError("You are already enrolled in this course.")
-            
-        course.enrolled_students.add(user)

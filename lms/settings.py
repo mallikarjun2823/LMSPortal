@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'courses',
+    'enrollment',
 ]
 
 # Use the custom user model from the `courses` app.

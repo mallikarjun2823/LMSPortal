@@ -72,11 +72,6 @@ class Course(models.Model):
         on_delete=models.PROTECT,
         related_name='instructed_courses'
     )
-    enrolled_students = models.ManyToManyField(
-        User,
-        related_name='enrolled_courses',
-        blank=True
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

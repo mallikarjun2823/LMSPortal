@@ -44,7 +44,10 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             auth_service = AuthService()
-            tokens = auth_service.login_user(serializer.validated_data)
+            try:
+                tokens = auth_service.login_user(serializer.validated_data)
+            except ValueError as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             return Response({"message": "Login successful.", "tokens": tokens}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -188,11 +191,3 @@ class CourseDetailView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    def enroll_student(self, request, course_id):
-        service = self.service_class()
-        try:
-            service.enroll_student(request.user, course_id)
-            return Response({"message": "Enrolled successfully."}, status=status.HTTP_200_OK)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    

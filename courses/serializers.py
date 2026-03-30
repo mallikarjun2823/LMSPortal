@@ -1,4 +1,5 @@
 from .models import User,Course, Module, Lesson, RoleLookup
+from enrollment.models import Enrollment
 from rest_framework import serializers
 
 
@@ -92,7 +93,7 @@ class CourseSerializer(serializers.ModelSerializer):
 
 class CourseListSerializer(serializers.ModelSerializer):
     instructor = UserSummarySerializer(read_only=True)
-    enrolled_students = UserSummarySerializer(many=True, read_only=True)
+    enrolled_students = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -106,6 +107,13 @@ class CourseListSerializer(serializers.ModelSerializer):
             'enrolled_students',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'instructor', 'enrolled_students']
+
+    def get_enrolled_students(self, obj):
+        qs = User.objects.filter(
+            enrollments__course=obj,
+            enrollments__status=Enrollment.Status.ACTIVE,
+        ).distinct()
+        return UserSummarySerializer(qs, many=True).data
     
 class CourseDetailSerializer(serializers.ModelSerializer):
     instructor = UserSummarySerializer(read_only=True)
