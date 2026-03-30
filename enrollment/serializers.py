@@ -31,3 +31,10 @@ class EnrollmentInviteSerializer(serializers.Serializer):
 		if not User.objects.filter(id=value).exists():
 			raise serializers.ValidationError("Student not found.")
 		return value
+
+
+class EnrollmentActionSerializer(serializers.Serializer):
+	"""Payload for performing an action on an enrollment (e.g., accept)."""
+
+	action = serializers.ChoiceField(choices=["accept"])
+
